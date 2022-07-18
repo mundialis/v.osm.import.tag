@@ -1,0 +1,81 @@
+<h2>DESCRIPTION</h2>
+
+<em>v.osm.import.tag.data</em> extracts data from OpenStreetMap by using a specific OSM tag.
+ This is possible by using the <a href="https://python-overpy.readthedocs.io/">Overpass API</a>
+as input source. If not already done install the overpass package using <code>pip install overpass</code>.
+As input area of interest you can use a vector in GRASS GIS or an external geojson file.
+While using an OSM tag satisfy the necessary pattern.
+
+<h2>EXAMPLES</h2>
+
+<h3>Download OSM "highways"</h3>
+
+Download OSM "highways" by their OSM tag('way["highway"]') in a specific area by
+using an existing vector map (area_of_interest).
+
+<div class="code"><pre>
+v.osm.import.tag input=area_of_interest osm_tag='way["highway"]'
+</pre></div>
+
+<h3>Download OSM "highways" and store with different name</h3>
+
+Download OSM "highways" by their OSM tag('way["highway"]') in a specific area by
+using an existing vector map (area_of_interest) and defining an output name (highways).
+
+<div class="code"><pre>
+v.osm.import.tag input=area_of_interest osm_tag='way["highway"]' output=highways
+</pre></div>
+
+<h3>Download OSM "highways" in a specific area defined by a geojson file</h3>
+
+Download OSM "highways" by their OSM tag('way["highway"]') in a specific area by
+using a geojson file (area_geojson) and defining an output name (highways).
+
+<div class="code"><pre>
+v.osm.import.tag geojson=area_geojson osm_tag='way["highway"]' output=highways
+</pre></div>
+
+The OSM tag has to follow the pattern 'way["highway"]' and can contain various keys
+and values.
+
+<h3>Download all amenities in a given area</h3>
+
+The following example would download all amenities in a given area.
+
+<div class="code"><pre>
+v.osm.import.tag geojson=area_geojson osm_tag='node["amenity"]' output=amenities
+</pre></div>
+
+<h3>Combination of a key and a value</h3>
+
+For specifying your query you can use a combination of a key and a value. For example
+use 'way["amenity"="hospitals"]' for downloading all hospitals in your area of interest.
+
+<div class="code"><pre>
+v.osm.import.tag geojson=area_geojson osm_tag='way["amenity"="hospitals"]' output=hospitals
+</pre></div>
+
+<b>Beware of using the right data type (node, way, relation) provided in OSM.</b>
+Sometimes there is more than one datatype for the same OSM tag. For example, hospitals are
+mapped as polygons and points sometimes so you should use the respective data types to be
+sure that you get all mapped features related to your tag.
+
+Find your tag at the <a href="https://wiki.openstreetmap.org/wiki/Tags">OSM Wiki</a>!
+
+<h2>REQUIREMENTS</h2>
+
+<ul>
+<li><a href="https://pypi.org/project/overpass/">overpass python library</a></li>
+<li>python json library</li>
+</ul>
+
+<h2>SEE ALSO</h2>
+
+<em>
+<a href="v.in.osm.html">v.in.osm</a>,
+<a href="v.out.geojson.html">v.in.osm</a>
+</em>
+
+<h2>AUTHORS</h2>
+
+Johannes Halbauer, <a href="https://www.mundialis.de/">mundialis</a>
