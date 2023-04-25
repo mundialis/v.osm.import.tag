@@ -28,7 +28,7 @@
 # %end
 
 # %option G_OPT_V_INPUT
-# % key: map
+# % key: aoi_map
 # % required: no
 # % description: Existing vector AOI map in GRASS as input
 # %end
@@ -53,7 +53,7 @@
 # %end
 
 # %rules
-# % exclusive: map, geojson
+# % exclusive: aoi_map, geojson
 # %end
 
 
@@ -144,15 +144,15 @@ def main():
     api = overpass.API(timeout=700)
 
     area_of_interest = options["geojson"]
-    map = options["map"]
-    if map:
+    aoi_map = options["aoi_map"]
+    if aoi_map:
         grass.run_command(
-            "v.out.geojson", input=map, output=tmp_geojson
+            "v.out.geojson", input=aoi_map, output=tmp_geojson
         )
 
     # load AOI (geojson) as dict
     input_geojson = None
-    if map:
+    if aoi_map:
         with open(tmp_geojson, mode="r") as f:
             input_geojson = json.load(f)
     else:
