@@ -79,11 +79,7 @@ output = options["output"]
 osm_tag = options["osm_tag"]
 
 
-
-
 #### define functions
-
-
 def check_geojson(input_json):
     """Check if there is a feature contained in geojson"""
     if len(input_json["features"]) == 0:
@@ -113,14 +109,13 @@ def coords_format(coordinates):
 
     coord_strings = " ".join(coord_strings)
 
+
 def cleanup():
     if os.path.isdir(temp_dir):
         shutil.rmtree(temp_dir)
 
 
 #### processing
-
-
 def main():
 
     global temp_dir
@@ -190,16 +185,17 @@ def main():
                 result["features"][i]["properties"][new_name] = feature["properties"][attribute]
                 del result["features"][i]["properties"][attribute]
                 attribute_names_lower.append(new_name)
+            elif attribute != attribute.lower():
+                result["features"][i]["properties"][attribute.lower()] = feature["properties"][attribute]
+                del result["features"][i]["properties"][attribute]
 
         attributes.extend(attribute_names_lower)
 
     output_geojson = os.path.join(temp_dir, f"{output}.geojson")
 
-
     # write request result to geojson
     with open(output_geojson, mode="w") as f:
         json.dump(result, f)
-
 
     grass.run_command("v.import", input=output_geojson, output=output)
 
