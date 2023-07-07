@@ -41,8 +41,18 @@
 
 # %option
 # % key: osm_tag
+# % multiple: yes
 # % required: yes
-# % description: OSM tag for querying a specific part of OSM data (form: 'way["highway"]')
+# % type: string
+# % description: OSM tag for querying a specific part of OSM data(form: 'way["highway"]')
+# %end
+
+# %option
+# % key: attributes
+# % multiple: yes
+# % required: no
+# % type: string
+# % description: Keys from OSM tags which shall be extracted for attribute table of output vector (e.g. surface,access,...)
 # %end
 
 # %option G_OPT_V_OUTPUT
@@ -55,7 +65,6 @@
 # %rules
 # % exclusive: aoi_map, geojson
 # %end
-
 
 import json
 import os
@@ -78,12 +87,17 @@ output = options["output"]
 # osm element and tag to query
 osm_tag = options["osm_tag"]
 
+# split tags if multiple tags
+osm_tag = osm_tag.split(",")
+
 
 #### define functions
 def check_geojson(input_json):
     """Check if there is a feature contained in geojson"""
     if len(input_json["features"]) == 0:
-        grass.message(_("Stopped, because of no feature contained in geojson."))
+        grass.message(
+            _("Stopped, because of no feature contained in geojson.")
+        )
         quit()
 
     elif len(input_json["features"]) > 1:
@@ -96,7 +110,10 @@ def check_geojson(input_json):
 
 
 def coords_format(coordinates):
-    """change structure of coordinates to "x y x y ..." needed for the overpass query"""
+    """
+    change structure of coordinates to "x y x y ..."
+    needed for the overpass query
+    """
     global coord_strings
 
     coord_strings = []
@@ -115,14 +132,17 @@ def cleanup():
         shutil.rmtree(temp_dir)
 
 
-#### processing
+#processing
 def main():
 
     global temp_dir
 
     if not grass.find_program("v.out.geojson", "--help"):
         grass.fatal(
-            _("The 'v.out.geojson' addon module was not found, " "install it first:")
+            _(
+                "The 'v.out.geojson' addon module was not found, "
+                "install it first:"
+            )
             + "\n"
             + "g.extension v.out.geojson url=path/to/addon"
         )
@@ -141,9 +161,7 @@ def main():
     area_of_interest = options["geojson"]
     aoi_map = options["aoi_map"]
     if aoi_map:
-        grass.run_command(
-            "v.out.geojson", input=aoi_map, output=tmp_geojson
-        )
+        grass.run_command("v.out.geojson", input=aoi_map, output=tmp_geojson)
 
     # load AOI (geojson) as dict
     input_geojson = None
@@ -162,9 +180,12 @@ def main():
     my_area = coord_strings
 
     # define query to get result
-    # query = f'way["highway"](poly:"{my_area}");'
 
-    query = f'{osm_tag}(poly:"{my_area}");'
+    query = []
+    for tag in osm_tag:
+        query.append(f'{tag}(poly:"{my_area}");')
+    query = "".join(query)
+    query = f" ({query})"
 
     # send request to overpass api
     result = api.get(query, verbosity="geom")
@@ -173,23 +194,53 @@ def main():
     for i, feature in enumerate(result["features"]):
         if not isinstance(feature, dict):
             continue
-        attribute_names_lower = [attr.lower() if isinstance(attr, str) else str(attr) for attr in feature["properties"]]
-        attribute_names = [attr for attr in feature["properties"] if isinstance(attr, str)]
+        attribute_names_lower = [
+            attr.lower() if isinstance(attr, str) else str(attr)
+            for attr in feature["properties"]
+        ]
+        attribute_names = [
+            attr for attr in feature["properties"] if isinstance(attr, str)
+        ]
 
         for attribute in attribute_names:
-            if attribute.lower() in attributes and attribute != attribute.lower():
+            if (
+                attribute.lower() in attributes
+                and attribute != attribute.lower()
+            ):
                 new_name = f"{attribute.lower()}"
                 if attribute.lower() in attribute_names_lower:
                     while new_name in attribute_names_lower:
                         new_name += "2"
-                result["features"][i]["properties"][new_name] = feature["properties"][attribute]
+                result["features"][i]["properties"][new_name] = feature[
+                    "properties"
+                ][attribute]
                 del result["features"][i]["properties"][attribute]
                 attribute_names_lower.append(new_name)
             elif attribute != attribute.lower():
-                result["features"][i]["properties"][attribute.lower()] = feature["properties"][attribute]
+                result["features"][i]["properties"][
+                    attribute.lower()
+                ] = feature["properties"][attribute]
                 del result["features"][i]["properties"][attribute]
 
         attributes.extend(attribute_names_lower)
+
+    # subset of specified keys for attribute table
+
+    col = options["attributes"]
+    if col:
+        col = col.split(",")
+        con = []
+        for k in col:
+            con.append(f"key != '{k}'")
+        con = " and ".join(con)
+        for property in result["features"]:
+            for key in list(property["properties"].keys()):
+                if eval(con):
+                    del property["properties"][key]
+            else:
+                continue
+    else:
+        grass.message(_("No attributes set"))
 
     output_geojson = os.path.join(temp_dir, f"{output}.geojson")
 

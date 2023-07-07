@@ -55,6 +55,25 @@ use 'way["amenity"="hospitals"]' for downloading all hospitals in your area of i
 v.osm.import.tag geojson=area_geojson osm_tag='way["amenity"="hospitals"]' output=hospitals
 </pre></div>
 
+<h3>Combination of multiple OSM tags</h3>
+
+For specifying your query you can use multiple OSM tags. For example
+use 'way["amenity"="parking"],way["parking"="surface"]' for downloading all parking areas, 
+which are either tagged with ["amenity"="parking"] or ["parking"="surface"] in your area of interest.
+
+<div class="code"><pre>
+v.osm.import.tag geojson=area_geojson osm_tag='way["amenity"="parking"],way["parking"="surface"]' output=parking
+</pre></div>
+
+<h3>Specify attributes for attribute table of output vector</h3>
+
+In order to only keep attributes of interests in the table of the output vector, specify keys of OSM Tags
+ in attributes=[...] (e.g. attributes=amenity,parking,access)
+
+<div class="code"><pre>
+v.osm.import.tag geojson=area_geojson osm_tag='way["amenity"="parking"],way["parking"="surface"]' attributes=amenity,parking,access output=parking
+</pre></div>
+
 <b>Beware of using the right data type (node, way, relation) provided in OSM.</b>
 Sometimes there is more than one datatype for the same OSM tag. For example, hospitals are
 mapped as polygons and points sometimes so you should use the respective data types to be
@@ -79,3 +98,4 @@ Find your tag at the <a href="https://wiki.openstreetmap.org/wiki/Tags">OSM Wiki
 <h2>AUTHORS</h2>
 
 Johannes Halbauer, <a href="https://www.mundialis.de/">mundialis</a>
+Improvements: Jonas Pischke <a href="https://www.mundialis.de/">mundialis</a>

@@ -1,0 +1,1 @@
+g.extension extension=v.out.geojson url=grass-gis-addons/v.out.geojson
