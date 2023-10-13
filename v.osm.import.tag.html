@@ -59,7 +59,7 @@ v.osm.import.tag geojson=area_geojson osm_tag='way["amenity"="hospitals"]' outpu
 <h3>Combination of multiple OSM tags</h3>
 
 For specifying your query you can use multiple OSM tags. For example
-use 'way["amenity"="parking"],way["parking"="surface"]' for downloading all parking areas, 
+use 'way["amenity"="parking"],way["parking"="surface"]' for downloading all parking areas,
 which are either tagged with ["amenity"="parking"] or ["parking"="surface"] in your area of interest.
 
 <div class="code"><pre>
@@ -81,6 +81,15 @@ mapped as polygons and points sometimes so you should use the respective data ty
 sure that you get all mapped features related to your tag.
 
 Find your tag at the <a href="https://wiki.openstreetmap.org/wiki/Tags">OSM Wiki</a>!
+
+<h3>Importing parking spaces as polygons</h3>
+
+The parking spaces can be imported as polygons with the <b>-p</b> flag.
+<b>ATTENTION: This works only if the polygon contains only one LineString!</b>
+
+<div class="code"><pre>
+v.osm.import.tag geojson=area_geojson osm_tag='nwr["amenity"="parking"],nwr["parking"="surface"]' output=parking_poly -p
+</pre></div>
 
 <h2>REQUIREMENTS</h2>
 

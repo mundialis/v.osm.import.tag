@@ -62,6 +62,11 @@
 # % description: Output name of processing result vector map
 # %end
 
+# %flag
+# % key: p
+# % description: Convert lines to polygons; Attention: This works only if the polygon contains only one LineString!
+# %end
+
 # %rules
 # % exclusive: aoi_map, geojson
 # %end
@@ -242,6 +247,17 @@ def main():
     else:
         grass.message(_("No attributes set"))
 
+    # convert lines to polygons
+    if flags["p"]:
+        for el in result['features']:
+            if el['geometry']['type'] == 'LineString':
+                el['geometry']['coordinates'].append(el['geometry']['coordinates'][0])
+                el['geometry']['coordinates'] = [el['geometry']['coordinates']]
+                el['geometry']['type'] = "Polygon"
+            else:
+                continue
+        grass.message(_("Lines are converted to polygons."))
+
     output_geojson = os.path.join(temp_dir, f"{output}.geojson")
 
     # write request result to geojson
@@ -251,7 +267,6 @@ def main():
     grass.run_command("v.import", input=output_geojson, output=output)
 
     grass.message(_("Done"))
-
 
 if __name__ == "__main__":
     options, flags = grass.parser()
