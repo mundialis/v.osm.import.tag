@@ -1,1 +1,1 @@
-g.extension extension=v.out.geojson url=grass-gis-addons/v.out.geojson
+g.extension extension=v.out.geojson url=https://github.com/mundialis/v.out.geojson
