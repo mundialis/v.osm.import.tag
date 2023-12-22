@@ -137,9 +137,8 @@ def cleanup():
         shutil.rmtree(temp_dir)
 
 
-#processing
+# processing
 def main():
-
     global temp_dir
 
     if not grass.find_program("v.out.geojson", "--help"):
@@ -249,11 +248,13 @@ def main():
 
     # convert lines to polygons
     if flags["p"]:
-        for el in result['features']:
-            if el['geometry']['type'] == 'LineString':
-                el['geometry']['coordinates'].append(el['geometry']['coordinates'][0])
-                el['geometry']['coordinates'] = [el['geometry']['coordinates']]
-                el['geometry']['type'] = "Polygon"
+        for el in result["features"]:
+            if el["geometry"]["type"] == "LineString":
+                el["geometry"]["coordinates"].append(
+                    el["geometry"]["coordinates"][0]
+                )
+                el["geometry"]["coordinates"] = [el["geometry"]["coordinates"]]
+                el["geometry"]["type"] = "Polygon"
             else:
                 continue
         grass.message(_("Lines are converted to polygons."))
@@ -267,6 +268,7 @@ def main():
     grass.run_command("v.import", input=output_geojson, output=output)
 
     grass.message(_("Done"))
+
 
 if __name__ == "__main__":
     options, flags = grass.parser()
