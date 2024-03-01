@@ -181,20 +181,21 @@ class TestVOSMImportTag(TestCase):
             cols,
             "OSM Tags are not extracted properly.",
         )
-        self.assertVectorFitsRegionInfo(
-            self.output,
-            reference={
-                "north": 4484325.88904686,
-                "south": 4482363.70729715,
-                "east": 6170359.63759409,
-                "west": 6168123.78538167,
-                "top": 0.0000,
-                "bottom": 0.0000,
-            },
-            msg="Extent of output vector not correct",
-            precision=10,
+        osm_reg = grass.parse_command(
+            "g.region", vector=self.output, flags="ug"
         )
-
+        aoi_reg = grass.parse_command(
+            "g.region", vector=self.aoi_map, flags="ug"
+        )
+        self.assertTrue(
+            (
+                float(osm_reg["n"]) >= float(aoi_reg["n"])
+                and float(osm_reg["s"]) <= float(aoi_reg["s"])
+                and float(osm_reg["e"]) >= float(aoi_reg["e"])
+                and float(osm_reg["w"]) <= float(aoi_reg["w"])
+            ),
+            msg="Extent of output vector not correct",
+        )
         print("Testing the module successfully finished")
 
     # test for geojson as aoi needs still to be written

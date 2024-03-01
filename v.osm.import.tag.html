@@ -1,11 +1,14 @@
 <h2>DESCRIPTION</h2>
 
-<em>v.osm.import.tag.data</em> extracts data from OpenStreetMap by using a specific OSM tag.
- This is possible by using the <a href="https://python-overpy.readthedocs.io/">Overpass API</a>
-as input source. If not already done install the overpass package using <code>pip install overpass</code>.
+<em>v.osm.import.tag</em> extracts data from OpenStreetMap by using a
+specific OSM tag.
+This is possible by using the <a href="https://python-overpy.readthedocs.io/">Overpass API</a>
+as input source or by "incomplete polygon" in the data
+<a href="https://osmnx.readthedocs.io/en/stable/">OSMnx</a>.
 As input area of interest you can use a vector in GRASS GIS or an external geojson file.
 While using an OSM tag satisfy the necessary pattern.
 <a href="https://osm-gpt.rohitgautam.com.np/">OSM-GPT</a> can be used to find the corresponding OSM tag.
+
 
 <h2>EXAMPLES</h2>
 
@@ -91,21 +94,33 @@ The parking spaces can be imported as polygons with the <b>-p</b> flag.
 v.osm.import.tag geojson=area_geojson osm_tag='nwr["amenity"="parking"],nwr["parking"="surface"]' output=parking_poly -p
 </pre></div>
 
+
 <h2>REQUIREMENTS</h2>
 
+The following python libraries are used:
 <ul>
 <li><a href="https://pypi.org/project/overpass/">overpass python library</a></li>
-<li>python json library</li>
+<li><a href="https://osmnx.readthedocs.io/en/stable/">OSMnx python library</a></li>
+<li><a href="https://shapely.readthedocs.io/en/stable/manual.html">Shapely python library.</a></li>
 </ul>
+
+If not already done install the overpass package using:
+<div class="code"><pre>
+    pip install overpass osmnx shapely
+</pre></div>
+
+On Alpine for OSMnx <em>proj-dev</em> is required.
+
 
 <h2>SEE ALSO</h2>
 
 <em>
 <a href="v.in.osm.html">v.in.osm</a>,
-<a href="v.out.geojson.html">v.in.osm</a>
+<a href="https://github.com/mundialis/v.out.geojson">v.out.geojson</a>
 </em>
 
 <h2>AUTHORS</h2>
 
-Johannes Halbauer, <a href="https://www.mundialis.de/">mundialis</a>
-Improvements: Jonas Pischke <a href="https://www.mundialis.de/">mundialis</a>
+Johannes Halbauer, <a href="https://www.mundialis.de/">mundialis GmbH &amp; Co. KG</a>, Germany
+Jonas Pischke, <a href="https://www.mundialis.de/">mundialis GmbH &amp; Co. KG</a>, Germany
+Anika Weinmann, <a href="https://www.mundialis.de/">mundialis GmbH &amp; Co. KG</a>, Germany
