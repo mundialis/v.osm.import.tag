@@ -278,7 +278,7 @@ def download_data_via_osmnx(input_geojson, osm_tag):
     type_list = []
     for tag in osm_tag:
         g_type, rest_tag = tag.split("]")[0].split("[")
-        if "=" in osm_tag:
+        if "=" in rest_tag:
             key, val = rest_tag.split("=")
             tag_dict[key.strip('"')] = val.strip('"')
         else:
