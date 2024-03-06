@@ -76,14 +76,15 @@
 import json
 import os
 import atexit
-import shutil
 import grass.script as grass
+
 
 options, flags = grass.parser()
 
 ##### define variables
 
 temp_dir = grass.tempdir()
+rm_files = []
 
 # create string for coordinates
 coord_strings = ""
@@ -135,8 +136,14 @@ def coords_format(coordinates):
 
 
 def cleanup():
+    for rm_file in rm_files:
+        if os.path.isfile(rm_file):
+            try:
+                os.remove(rm_file)
+            except Exception:
+                grass.warning(f"{rm_file} could not be deleted!")
     if os.path.isdir(temp_dir):
-        shutil.rmtree(temp_dir)
+        grass.try_rmdir(temp_dir)
 
 
 def convert_lines_to_polygons(result):
@@ -185,7 +192,11 @@ def download_data_via_overpass(input_geojson, osm_tag):
     try:
         result = api.get(query, verbosity="geom")
     except overpass.errors.UnknownOverpassError as err:
-        if "incomplete polygon" in err.message:
+        msg = err.message
+        if (
+            "incomplete polygon" in msg
+            or "inner polygon cannot be matched to outer polygon" in msg
+        ):
             return None
 
     attributes = list()
@@ -280,9 +291,9 @@ def download_data_via_osmnx(input_geojson, osm_tag):
         g_type, rest_tag = tag.split("]")[0].split("[")
         if "=" in rest_tag:
             key, val = rest_tag.split("=")
-            tag_dict[key.strip('"')] = val.strip('"')
+            tag_dict[key.strip('"').strip("'")] = val.strip('"').strip("'")
         else:
-            tag_dict[rest_tag.strip('"')] = True
+            tag_dict[rest_tag.strip('"').strip("'")] = True
         type_list.append(g_type)
 
     # get osm data
@@ -298,43 +309,30 @@ def download_data_via_osmnx(input_geojson, osm_tag):
         :, osm_data.columns.str.contains("|".join(column_names))
     ]
 
-    # filter geometry
-    geom_type = None
-    # for x in osm_data.loc[:,"geometry"]:
-    #     if isinstance(x, Polygon):
-    if flags["p"] or "nwr" in type_list or "area" in type_list:
-        geom_type = "Polygon"
-    elif "way" in type_list:
-        geom_type = "LineString"
-    elif "node" in type_list:
-        geom_type = "Point"
-    elif "rel" in type_list:
-        # TODO
-        pass
-    elif "nw" in type_list:
-        # TODO
-        pass
-    elif "nr" in type_list:
-        # TODO
-        pass
-    elif "wr" in type_list:
-        # TODO
-        pass
-    elif "derived" in type_list:
-        # TODO
-        pass
-    if geom_type is None:
-        grass.fatal(_("No geom_type set!"))
-    osm_data3 = osm_data2.loc[osm_data2.geometry.type == geom_type]
-    # save osm data to GPKG
-    output_file = os.path.join(temp_dir, f"{output}.gpkg")
-    osm_data3.to_file(output_file)
+    # # filter geometry
+    # osm_data3 = osm_data2.loc[osm_data2.geometry.type == "Polygon"]
+
+    # save osm data to GeoJson
+    output_file = os.path.join(temp_dir, f"{output}.geojson")
+    rm_files.append(output_file)
+    osm_data2.to_file(output_file, driver="GeoJSON")
+
+    # convert lines to polygons
+    if flags["p"]:
+        with open(output_file) as f_in:
+            data = json.load(f_in)
+        convert_lines_to_polygons(data)
+        output_file = os.path.join(temp_dir, f"{output}_poly.geojson")
+        rm_files.append(output_file)
+        with open(output_file, "w") as f_out:
+            json.dump(data, f_out)
+
     return output_file
 
 
 def main():
     """Main function of v.osm.import.tag"""
-    global temp_dir
+    global temp_dir, rm_files
 
     area_of_interest = options["geojson"]
     aoi_map = options["aoi_map"]
