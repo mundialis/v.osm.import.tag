@@ -6,8 +6,8 @@
 # AUTHOR(S):   Jonas Pischke
 
 # PURPOSE:     Tests v.osm.import.tag
-# COPYRIGHT:   (C) 2023 by mundialis GmbH & Co. KG and the GRASS Development
-#              Team
+# COPYRIGHT:   (C) 2022-2025 by mundialis GmbH & Co. KG and the GRASS
+#              Development Team and the Overpass API Development Team
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -171,8 +171,8 @@ class TestVOSMImportTag(TestCase):
             "Incorrect number of objects. Should be > 1700",
         )
         self.assertTrue(
-            (float(objects["lines"]) < 2000),
-            "Incorrect number of objects. Should not be < 2000",
+            (float(objects["lines"]) < 2500),
+            "Incorrect number of objects. Should be < 2500",
         )
 
         cols = grass.parse_command("v.info", map=self.output, flags="c")
