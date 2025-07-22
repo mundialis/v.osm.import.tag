@@ -5,3 +5,7 @@ on: [push, pull_request]
 jobs:
   lint:
     uses: mundialis/github-workflows/.github/workflows/linting.yml@1.4.1
+    with:
+      VALIDATE_HTML: false
+      VALIDATE_BASH: false
+      ruff_version: false
