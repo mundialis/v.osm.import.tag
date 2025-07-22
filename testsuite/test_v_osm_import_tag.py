@@ -33,6 +33,7 @@ class TestVOSMImportTag(TestCase):
     """
     Main test class
     """
+
     rm_vec = []
     pid = os.getpid()
     aoi_map_file = "data/test_aoi.gpkg"
