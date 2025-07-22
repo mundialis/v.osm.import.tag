@@ -18,7 +18,7 @@ Download OSM "highways" by their OSM tag('way["highway"]') in a specific area by
 using an existing vector map (area_of_interest).
 
 <div class="code"><pre>
-v.osm.import.tag input=area_of_interest osm_tag='way["highway"]'
+v.osm.import.tag aoi_map=area_of_interest osm_tag='way["highway"]'
 </pre></div>
 
 <h3>Download OSM "highways" and store with different name</h3>
@@ -27,7 +27,7 @@ Download OSM "highways" by their OSM tag('way["highway"]') in a specific area by
 using an existing vector map (area_of_interest) and defining an output name (highways).
 
 <div class="code"><pre>
-v.osm.import.tag input=area_of_interest osm_tag='way["highway"]' output=highways
+v.osm.import.tag aoi_map=area_of_interest osm_tag='way["highway"]' output=highways
 </pre></div>
 
 <h3>Download OSM "highways" in a specific area defined by a geojson file</h3>

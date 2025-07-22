@@ -7,7 +7,7 @@
 #
 # PURPOSE:     Extracts all data selected by a tag from OSM wihtin a defined
 #              area
-# COPYRIGHT:   (C) 2022-2024 by mundialis GmbH & Co. KG and the GRASS
+# COPYRIGHT:   (C) 2022-2025 by mundialis GmbH & Co. KG and the GRASS
 #              Development Team and the Overpass API Development Team
 #
 # This program is free software; you can redistribute it and/or modify
@@ -78,6 +78,14 @@ import os
 import atexit
 import grass.script as grass
 
+try:
+    from shapely.geometry import Polygon
+    import osmnx as ox
+    import overpass
+except ImportError as e:
+    grass.fatal(
+        _(f"Module requires shapely, osmnx, and overpass libraries: {e}")
+    )
 
 options, flags = grass.parser()
 
@@ -85,9 +93,6 @@ options, flags = grass.parser()
 
 temp_dir = grass.tempdir()
 rm_files = []
-
-# create string for coordinates
-coord_strings = ""
 
 # define output file name
 output = options["output"]
@@ -122,7 +127,6 @@ def coords_format(coordinates):
     change structure of coordinates to "x y x y ..."
     needed for the overpass query
     """
-    global coord_strings
 
     coord_strings = []
 
@@ -133,9 +137,13 @@ def coords_format(coordinates):
         coord_strings.append(poly)
 
     coord_strings = " ".join(coord_strings)
+    return coord_strings
 
 
 def cleanup():
+    """
+    general cleanup function
+    """
     for rm_file in rm_files:
         if os.path.isfile(rm_file):
             try:
@@ -169,17 +177,13 @@ def download_data_via_overpass(input_geojson, osm_tag):
     Return:
         output_geojson (str): The output GeoJSON file with the OSM data inside
     """
-    # lazy import nonstandard module
-    try:
-        import overpass
-    except ImportError as e:
-        grass.fatal(_(f"Module requires overpass library: {e}"))
-
     # instance api with timeout after 700 seconds
     api = overpass.API(timeout=700)
 
     # get coordinates from input geojson
-    coords_format(input_geojson["features"][0]["geometry"]["coordinates"][0])
+    coord_strings = coords_format(
+        input_geojson["features"][0]["geometry"]["coordinates"][0]
+    )
 
     # define query to get result
     query = []
@@ -271,12 +275,6 @@ def download_data_via_osmnx(input_geojson, osm_tag):
     Return:
         output_file (str): The output GPKG file with the OSM data inside
     """
-    # lazy import nonstandard module
-    try:
-        from shapely.geometry import Polygon
-        import osmnx as ox
-    except ImportError as e:
-        grass.fatal(_(f"Module requires shapely and osmnx library: {e}"))
 
     # create shapely polygon from input_geojson
     coordinates = input_geojson["features"][0]["geometry"]["coordinates"][0]
