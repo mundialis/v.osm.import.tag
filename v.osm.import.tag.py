@@ -83,9 +83,7 @@ try:
     import osmnx as ox
     import overpass
 except ImportError as e:
-    grass.fatal(
-        _(f"Module requires shapely, osmnx, and overpass libraries: {e}")
-    )
+    grass.fatal(_(f"Module requires shapely, osmnx, and overpass libraries: {e}"))
 
 options, flags = grass.parser()
 
@@ -108,9 +106,7 @@ osm_tag = osm_tag.split(",")
 def check_geojson(input_json):
     """Check if there is a feature contained in geojson"""
     if len(input_json["features"]) == 0:
-        grass.message(
-            _("Stopped, because of no feature contained in geojson.")
-        )
+        grass.message(_("Stopped, because of no feature contained in geojson."))
         quit()
 
     elif len(input_json["features"]) > 1:
@@ -158,9 +154,7 @@ def convert_lines_to_polygons(result):
     """Convert line features in polygons"""
     for el in result["features"]:
         if el["geometry"]["type"] == "LineString":
-            el["geometry"]["coordinates"].append(
-                el["geometry"]["coordinates"][0]
-            )
+            el["geometry"]["coordinates"].append(el["geometry"]["coordinates"][0])
             el["geometry"]["coordinates"] = [el["geometry"]["coordinates"]]
             el["geometry"]["type"] = "Polygon"
         else:
@@ -216,23 +210,20 @@ def download_data_via_overpass(input_geojson, osm_tag):
         ]
 
         for attribute in attribute_names:
-            if (
-                attribute.lower() in attributes
-                and attribute != attribute.lower()
-            ):
+            if attribute.lower() in attributes and attribute != attribute.lower():
                 new_name = f"{attribute.lower()}"
                 if attribute.lower() in attribute_names_lower:
                     while new_name in attribute_names_lower:
                         new_name += "2"
-                result["features"][i]["properties"][new_name] = feature[
-                    "properties"
-                ][attribute]
+                result["features"][i]["properties"][new_name] = feature["properties"][
+                    attribute
+                ]
                 del result["features"][i]["properties"][attribute]
                 attribute_names_lower.append(new_name)
             elif attribute != attribute.lower():
-                result["features"][i]["properties"][
-                    attribute.lower()
-                ] = feature["properties"][attribute]
+                result["features"][i]["properties"][attribute.lower()] = feature[
+                    "properties"
+                ][attribute]
                 del result["features"][i]["properties"][attribute]
 
         attributes.extend(attribute_names_lower)
@@ -303,9 +294,7 @@ def download_data_via_osmnx(input_geojson, osm_tag):
         # Join the list into a string
         if any(isinstance(val, list) for val in osm_data[col]):
             osm_data[col] = osm_data[col].apply(lambda x: str(x))
-    osm_data2 = osm_data.loc[
-        :, osm_data.columns.str.contains("|".join(column_names))
-    ]
+    osm_data2 = osm_data.loc[:, osm_data.columns.str.contains("|".join(column_names))]
 
     # # filter geometry
     # osm_data3 = osm_data2.loc[osm_data2.geometry.type == "Polygon"]
@@ -337,10 +326,7 @@ def main():
 
     if not grass.find_program("v.out.geojson", "--help"):
         grass.fatal(
-            _(
-                "The 'v.out.geojson' addon module was not found, "
-                "install it first:"
-            )
+            _("The 'v.out.geojson' addon module was not found, " "install it first:")
             + "\n"
             + "g.extension v.out.geojson url=path/to/addon"
         )
