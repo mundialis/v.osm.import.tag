@@ -12,16 +12,7 @@ corresponding OSM tag.
 
 ## EXAMPLES
 
-### Download OSM "highways"
-
-Download OSM "highways" by their OSM tag('way\["highway"\]') in a
-specific area by using an existing vector map (area_of_interest).
-
-```sh
-v.osm.import.tag aoi_map=area_of_interest osm_tag='way["highway"]'
-```
-
-### Download OSM "highways" and store with different name
+### Download OSM "highways" and store as a GRASS vector map
 
 Download OSM "highways" by their OSM tag('way\["highway"\]') in a
 specific area by using an existing vector map (area_of_interest) and
@@ -106,8 +97,7 @@ The following python libraries are used:
 
 - [overpass python library](https://pypi.org/project/overpass/)
 - [OSMnx python library](https://osmnx.readthedocs.io/en/stable/)
-- [Shapely python
-  library.](https://shapely.readthedocs.io/en/stable/manual.html)
+- [Shapely python library](https://shapely.readthedocs.io/en/stable/manual.html)
 
 If not already done install the overpass package using:
 
