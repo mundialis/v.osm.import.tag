@@ -342,7 +342,7 @@ def main():
                 "install it first:"
             )
             + "\n"
-            + "g.extension v.out.geojson url=path/to/addon"
+            + "g.extension v.out.geojson url=https://github.com/mundialis/v.out.geojson"
         )
 
     if not grass.find_file(aoi_map, "vector")["file"]:
