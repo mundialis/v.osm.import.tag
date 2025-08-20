@@ -345,6 +345,9 @@ def main():
             + "g.extension v.out.geojson url=path/to/addon"
         )
 
+    if not grass.find_file(aoi_map, "vector")["file"]:
+        grass.fatal(_("Vector map <%s> not found") % aoi_map)
+
     # get aoi as geojson
     tmp_geojson = os.path.join(temp_dir, "tmp.geojson")
     if aoi_map:
