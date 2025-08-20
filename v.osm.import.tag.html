@@ -12,16 +12,7 @@ While using an OSM tag satisfy the necessary pattern.
 
 <h2>EXAMPLES</h2>
 
-<h3>Download OSM "highways"</h3>
-
-Download OSM "highways" by their OSM tag('way["highway"]') in a specific area by
-using an existing vector map (area_of_interest).
-
-<div class="code"><pre>
-v.osm.import.tag aoi_map=area_of_interest osm_tag='way["highway"]'
-</pre></div>
-
-<h3>Download OSM "highways" and store with different name</h3>
+<h3>Download OSM "highways" and store as a GRASS vector map</h3>
 
 Download OSM "highways" by their OSM tag('way["highway"]') in a specific area by
 using an existing vector map (area_of_interest) and defining an output name (highways).
@@ -101,7 +92,7 @@ The following python libraries are used:
 <ul>
 <li><a href="https://pypi.org/project/overpass/">overpass python library</a></li>
 <li><a href="https://osmnx.readthedocs.io/en/stable/">OSMnx python library</a></li>
-<li><a href="https://shapely.readthedocs.io/en/stable/manual.html">Shapely python library.</a></li>
+<li><a href="https://shapely.readthedocs.io/en/stable/manual.html">Shapely python library</a></li>
 </ul>
 
 If not already done install the overpass package using:
@@ -121,6 +112,6 @@ On Alpine for OSMnx <em>proj-dev</em> is required.
 
 <h2>AUTHORS</h2>
 
-Johannes Halbauer, <a href="https://www.mundialis.de/">mundialis GmbH &amp; Co. KG</a>, Germany
-Jonas Pischke, <a href="https://www.mundialis.de/">mundialis GmbH &amp; Co. KG</a>, Germany
+Johannes Halbauer, <a href="https://www.mundialis.de/">mundialis GmbH &amp; Co. KG</a>, Germany<br>
+Jonas Pischke, <a href="https://www.mundialis.de/">mundialis GmbH &amp; Co. KG</a>, Germany<br>
 Anika Weinmann, <a href="https://www.mundialis.de/">mundialis GmbH &amp; Co. KG</a>, Germany
