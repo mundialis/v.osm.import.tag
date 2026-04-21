@@ -361,10 +361,19 @@ def main():
 
     check_geojson(input_geojson)
 
-    result_file = download_data_via_overpass(input_geojson, osm_tag)
+    try:
+        result_file = download_data_via_overpass(input_geojson, osm_tag)
+    except Exception:
+        result_file = None
+        grass.warning(
+            _(
+                "Overpass API request failed, "
+                "trying to download data via osmnx library..."
+            )
+        )
 
-    # if overpass OSM import returns None then the import will be tried with
-    # osmnx
+    # if overpass OSM import returns None or fails
+    # then the import will be tried with osmnx
     if result_file is None:
         result_file = download_data_via_osmnx(input_geojson, osm_tag)
 
