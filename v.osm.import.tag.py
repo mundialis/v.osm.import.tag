@@ -69,6 +69,11 @@
 # % description: Convert lines to polygons; Attention: This works only if the polygon contains only one LineString!
 # %end
 
+# %flag
+# % key: f
+# % description: Allow failing query or rather no matching feature found. If this flag is not set, the module will fail if no matching feature is found for the query. If the flag is set, the module will continue without output generation (Reasonable if sure that query is correct, but aoi_map might not contatin requested query).
+# %end
+
 # %rules
 # % exclusive: aoi_map, geojson
 # %end
@@ -230,9 +235,9 @@ def download_data_via_overpass(input_geojson, osm_tag):
                 del result["features"][i]["properties"][attribute]
                 attribute_names_lower.append(new_name)
             elif attribute != attribute.lower():
-                result["features"][i]["properties"][
-                    attribute.lower()
-                ] = feature["properties"][attribute]
+                result["features"][i]["properties"][attribute.lower()] = (
+                    feature["properties"][attribute]
+                )
                 del result["features"][i]["properties"][attribute]
 
         attributes.extend(attribute_names_lower)
@@ -295,7 +300,24 @@ def download_data_via_osmnx(input_geojson, osm_tag):
         type_list.append(g_type)
 
     # get osm data
-    osm_data = ox.features_from_polygon(polygon_geom, tag_dict)
+    try:
+        osm_data = ox.features_from_polygon(polygon_geom, tag_dict)
+    except ox._errors.InsufficientResponseError as e:
+        if flags["f"]:
+            grass.warning(
+                _(f"No OSM features found for query {tag_dict}: {e}")
+            )
+            return
+        else:
+            grass.fatal(
+                _(
+                    f"No OSM features found for query {tag_dict}: {e}. "
+                    "If query correct, but not contained within AOI "
+                    "consider using the -f flag to allow failing query."
+                )
+            )
+    except Exception as e:
+        grass.fatal(_(f"OSMnx query failed with unexpected error: {e}"))
 
     # get columns and filter columns
     column_names = list(osm_data.columns.values)
@@ -378,8 +400,9 @@ def main():
         result_file = download_data_via_osmnx(input_geojson, osm_tag)
 
     # import result file
-    grass.run_command("v.import", input=result_file, output=output)
-    grass.message(_(f"OSM data imported as <{output}>."))
+    if result_file:
+        grass.run_command("v.import", input=result_file, output=output)
+        grass.message(_(f"OSM data imported as <{output}>."))
 
 
 if __name__ == "__main__":
