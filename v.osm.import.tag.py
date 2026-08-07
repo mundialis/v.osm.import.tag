@@ -64,6 +64,24 @@
 # % description: Output name of processing result vector map
 # %end
 
+# %option
+# % key: retries
+# % multiple: no
+# % required: no
+# % type: integer
+# % answer: 4
+# % description: Number of times to retry the Overpass API query. Default: 4
+# %end
+
+# %option
+# % key: tool
+# % multiple: no
+# % required: no
+# % type: string
+# % answer: overpass
+# % description: Tool to download OSM data. Options: overpass, osmnx. Default: overpass
+# %end
+
 # %flag
 # % key: p
 # % description: Convert lines to polygons; Attention: This works only if the polygon contains only one LineString!
@@ -78,8 +96,11 @@
 # % exclusive: aoi_map, geojson
 # %end
 
+import contextlib
+import requests
 import json
 import os
+import time
 import atexit
 import grass.script as grass
 
@@ -108,6 +129,35 @@ osm_tag = options["osm_tag"]
 # split tags if multiple tags
 osm_tag = osm_tag.split(",")
 
+# define number of retries for overpass api query
+max_retries = int(options["retries"])
+
+# tool to download OSM data
+tool = options["tool"].lower()
+
+# Public Overpass API mirrors to try, in this order, before giving up.
+# overpass-api.de is the primary instance, the others are community
+# mirrors.
+OVERPASS_ENDPOINTS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+]
+num = round(max_retries / len(OVERPASS_ENDPOINTS) + 0.5)
+endpoints = OVERPASS_ENDPOINTS * num
+
+# overpass-api.de rejects requests that only carry generic HTTP client
+# headers (e.g. the default "python-requests/x.x" User-Agent) with a
+# "406 Not Acceptable" error. Always identify ourselves properly and add
+# contact info so operators can reach us instead of just blocking us.
+OVERPASS_USER_AGENT = (
+    "v.osm.import.tag/1.0 (GRASS GIS addon; "
+    "https://github.com/mundialis/v.osm.import.tag)"
+)
+
+# base delay (seconds) for exponential backoff between retries
+OVERPASS_RETRY_BACKOFF = 2
 
 #### define functions
 def check_geojson(input_json):
@@ -173,18 +223,92 @@ def convert_lines_to_polygons(result):
     grass.message(_("Lines are converted to polygons."))
 
 
+@contextlib.contextmanager
+def _polite_overpass_headers():
+    """Temporarily make every outgoing `requests` call send a proper
+    User-Agent and Accept header.
+
+    The `overpass` python package (mvexel/overpass-api-python-wrapper) is
+    unmaintained/archived and does not expose a way to set custom HTTP
+    headers. overpass-api.de now rejects "impolite" requests (missing or
+    generic User-Agent) with HTTP 406. This context manager monkeypatches
+    requests.Session.request just for the duration of the overpass call,
+    so the rest of the module (e.g. osmnx) is unaffected.
+    """
+    original_request = requests.Session.request
+
+    def patched_request(self, method, url, *args, **kwargs):
+        headers = kwargs.pop("headers", None) or {}
+        headers.setdefault("User-Agent", OVERPASS_USER_AGENT)
+        headers.setdefault("Accept", "application/json")
+        headers.setdefault("Accept-Charset", "utf-8;q=0.7,*;q=0.7")
+        headers.setdefault("Accept-Encoding", "gzip, deflate")
+        kwargs["headers"] = headers
+        return original_request(self, method, url, *args, **kwargs)
+
+    requests.Session.request = patched_request
+    try:
+        yield
+    finally:
+        requests.Session.request = original_request
+
+
+def _query_overpass_with_retries(query, timeout):
+    """Query several Overpass endpoints with retries/backoff.
+
+    Args:
+        query (str): full Overpass QL query (without leading endpoint)
+        timeout (int): per-request timeout in seconds
+
+    Returns:
+        dict: the parsed (GeoJSON-like) overpass response
+
+    Raises:
+        The last encountered exception if every endpoint/attempt failed
+        with a connection-type error (caller can then fall back to
+        osmnx).
+    """
+    last_exc = None
+    with _polite_overpass_headers():
+        attempt = 0
+        for endpoint in endpoints[:max_retries]:
+            api = overpass.API(endpoint=endpoint, timeout=timeout)
+            try:
+                return api.get(query, verbosity="geom")
+            except overpass.errors.UnknownOverpassError:
+                # query itself is invalid (e.g. broken polygon) -
+                # retrying / switching endpoint will not help
+                raise
+            except Exception as e:
+                last_exc = e
+                grass.warning(
+                    _(
+                        f"Overpass request to {endpoint} failed "
+                        f"(attempt {attempt + 1}/{max_retries}): {e}"
+                    )
+                )
+                time.sleep(OVERPASS_RETRY_BACKOFF**attempt)
+            attempt += 1
+            if last_exc is None:
+                break
+        if last_exc is not None:
+            grass.fatal(
+                _(f"Overpass query failed with unexpected error: {last_exc}")
+            )
+    # every endpoint failed with a connection-type error
+    raise last_exc
+
+
 def download_data_via_overpass(input_geojson, osm_tag):
     """Download OSM data via overpass api
 
     Args:
         input_geojson (dict): Geojson dictionary with geometry of aoi
         osm_tag (list): List with OSM tags
+
     Return:
         output_geojson (str): The output GeoJSON file with the OSM data inside
     """
-    # instance api with timeout after 700 seconds
-    api = overpass.API(timeout=700)
-
     # get coordinates from input geojson
     coord_strings = coords_format(
         input_geojson["features"][0]["geometry"]["coordinates"][0]
@@ -197,9 +321,9 @@ def download_data_via_overpass(input_geojson, osm_tag):
     query = "".join(query)
     query = f" ({query})"
 
-    # send request to overpass api
+    # send request to overpass api (with mirror fallback + retries)
     try:
-        result = api.get(query, verbosity="geom")
+        result = _query_overpass_with_retries(query, timeout=700)
     except overpass.errors.UnknownOverpassError as err:
         msg = err.message
         if (
@@ -207,6 +331,7 @@ def download_data_via_overpass(input_geojson, osm_tag):
             or "inner polygon cannot be matched to outer polygon" in msg
         ):
             return None
+        raise
 
     attributes = list()
     for i, feature in enumerate(result["features"]):
@@ -277,6 +402,7 @@ def download_data_via_osmnx(input_geojson, osm_tag):
     Args:
         input_geojson (dict): Geojson dictionary with geometry of aoi
         osm_tag (list): List with OSM tags
+
     Return:
         output_file (str): The output GPKG file with the OSM data inside
     """
@@ -299,25 +425,50 @@ def download_data_via_osmnx(input_geojson, osm_tag):
             tag_dict[rest_tag.strip('"').strip("'")] = True
         type_list.append(g_type)
 
-    # get osm data
-    try:
-        osm_data = ox.features_from_polygon(polygon_geom, tag_dict)
-    except ox._errors.InsufficientResponseError as e:
-        if flags["f"]:
+    # identify politely and only rely on osmnx's own (already well
+    # behaved) request headers/rate limiting
+    ox.settings.useragent = OVERPASS_USER_AGENT
+    ox.settings.referer = OVERPASS_USER_AGENT
+
+    # get osm data, with mirror fallback + retries for connection issues
+    osm_data = None
+    last_exc = None
+    attempt = 0
+    for endpoint in endpoints[:max_retries]:
+        ox.settings.overpass_url = endpoint
+        import pdb; pdb.set_trace()
+        try:
+            osm_data = ox.features_from_polygon(polygon_geom, tag_dict)
+            last_exc = None
+            break
+        except ox._errors.InsufficientResponseError as e:
+            if flags["f"]:
+                grass.warning(
+                    _(f"No OSM features found for query {tag_dict}: {e}")
+                )
+                return
+            else:
+                grass.fatal(
+                    _(
+                        f"No OSM features found for query {tag_dict}: {e}. "
+                        "If query correct, but not contained within AOI "
+                        "consider using the -f flag to allow failing query."
+                    )
+                )
+        except Exception as e:
+            last_exc = e
             grass.warning(
-                _(f"No OSM features found for query {tag_dict}: {e}")
-            )
-            return
-        else:
-            grass.fatal(
                 _(
-                    f"No OSM features found for query {tag_dict}: {e}. "
-                    "If query correct, but not contained within AOI "
-                    "consider using the -f flag to allow failing query."
+                    f"osmnx request to {endpoint} failed "
+                    f"(attempt {attempt + 1}/{max_retries}): {e}"
                 )
             )
-    except Exception as e:
-        grass.fatal(_(f"OSMnx query failed with unexpected error: {e}"))
+            time.sleep(OVERPASS_RETRY_BACKOFF**attempt)
+        attempt += 1
+        if last_exc is None:
+            break
+    if last_exc is not None:
+        grass.fatal(_(f"OSMnx query failed with unexpected error: {last_exc}"))
 
     # get columns and filter columns
     column_names = list(osm_data.columns.values)
@@ -383,20 +534,19 @@ def main():
 
     check_geojson(input_geojson)
 
-    try:
-        result_file = download_data_via_overpass(input_geojson, osm_tag)
-    except Exception:
-        result_file = None
-        grass.warning(
-            _(
-                "Overpass API request failed, "
-                "trying to download data via osmnx library..."
+    if tool == "overpass":
+        try:
+            result_file = download_data_via_overpass(input_geojson, osm_tag)
+        except Exception as e:
+            import pdb; pdb.set_trace()
+            result_file = None
+            grass.error(
+                _(
+                    "Overpass API request failed, "
+                    "trying to download data via osmnx library..."
+                )
             )
-        )
-
-    # if overpass OSM import returns None or fails
-    # then the import will be tried with osmnx
-    if result_file is None:
+    elif tool == "osmnx":
         result_file = download_data_via_osmnx(input_geojson, osm_tag)
 
     # import result file
