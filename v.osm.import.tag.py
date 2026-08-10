@@ -7,7 +7,7 @@
 #
 # PURPOSE:     Extracts all data selected by a tag from OSM wihtin a defined
 #              area
-# COPYRIGHT:   (C) 2022-2025 by mundialis GmbH & Co. KG and the GRASS
+# COPYRIGHT:   (C) 2022-2026 by mundialis GmbH & Co. KG and the GRASS
 #              Development Team and the Overpass API Development Team
 #
 # This program is free software; you can redistribute it and/or modify
@@ -97,26 +97,28 @@
 # %end
 
 import contextlib
-import requests
 import json
 import os
-import time
 import atexit
+import time
+
 import grass.script as grass
 
 try:
     from shapely.geometry import Polygon
     import osmnx as ox
     import overpass
+    import requests
 except ImportError as e:
     grass.fatal(
-        _(f"Module requires shapely, osmnx, and overpass libraries: {e}")
+        _(
+            f"Module requires shapely, osmnx, overpass and requests libraries: {e}"
+        )
     )
 
 options, flags = grass.parser()
 
 ##### define variables
-
 temp_dir = grass.tempdir()
 rm_files = []
 
@@ -142,10 +144,7 @@ OVERPASS_ENDPOINTS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",
-    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
 ]
-num = round(max_retries / len(OVERPASS_ENDPOINTS) + 0.5)
-endpoints = OVERPASS_ENDPOINTS * num
 
 # overpass-api.de rejects requests that only carry generic HTTP client
 # headers (e.g. the default "python-requests/x.x" User-Agent) with a
@@ -158,6 +157,7 @@ OVERPASS_USER_AGENT = (
 
 # base delay (seconds) for exponential backoff between retries
 OVERPASS_RETRY_BACKOFF = 2
+
 
 #### define functions
 def check_geojson(input_json):
@@ -270,32 +270,41 @@ def _query_overpass_with_retries(query, timeout):
     """
     last_exc = None
     with _polite_overpass_headers():
-        attempt = 0
-        for endpoint in endpoints[:max_retries]:
+        for endpoint in OVERPASS_ENDPOINTS:
             api = overpass.API(endpoint=endpoint, timeout=timeout)
-            try:
-                return api.get(query, verbosity="geom")
-            except overpass.errors.UnknownOverpassError:
-                # query itself is invalid (e.g. broken polygon) -
-                # retrying / switching endpoint will not help
-                raise
-            except Exception as e:
-                last_exc = e
+            for attempt in range(max_retries):
+                try:
+                    return api.get(query, verbosity="geom")
+                except overpass.errors.UnknownOverpassError:
+                    # query itself is invalid (e.g. broken polygon) -
+                    # retrying / switching endpoint will not help
+                    raise
+                except Exception as e:
+                    last_exc = e
+                    if _is_permanent_http_error(e):
+                        grass.warning(
+                            _(
+                                f"Overpass endpoint {endpoint} rejected the "
+                                f"request ({e}), skipping to next endpoint."
+                            )
+                        )
+                        break
+                    grass.warning(
+                        _(
+                            f"Overpass request to {endpoint} failed "
+                            f"(attempt {attempt + 1}/{max_retries}): {e}"
+                        )
+                    )
+                    time.sleep(OVERPASS_RETRY_BACKOFF**attempt)
+            else:
+                # loop completed without a `break` -> all retries used up
                 grass.warning(
                     _(
-                        f"Overpass request to {endpoint} failed "
-                        f"(attempt {attempt + 1}/{max_retries}): {e}"
+                        f"Giving up on {endpoint} after "
+                        f"{max_retries} attempts."
                     )
                 )
-                time.sleep(OVERPASS_RETRY_BACKOFF**attempt)
-            attempt += 1
-            if last_exc is None:
-                break
-        if last_exc is not None:
-            grass.fatal(
-                _(f"Overpass query failed with unexpected error: {last_exc}")
-            )
-    # every endpoint failed with a connection-type error
+    # every endpoint failed
     raise last_exc
 
 
@@ -379,8 +388,8 @@ def download_data_via_overpass(input_geojson, osm_tag):
             for key in list(property["properties"].keys()):
                 if eval(con):
                     del property["properties"][key]
-            else:
-                continue
+                else:
+                    continue
     else:
         grass.message(_("No attributes set"))
 
@@ -433,40 +442,51 @@ def download_data_via_osmnx(input_geojson, osm_tag):
     # get osm data, with mirror fallback + retries for connection issues
     osm_data = None
     last_exc = None
-    attempt = 0
-    for endpoint in endpoints[:max_retries]:
+    for endpoint in OVERPASS_ENDPOINTS:
         ox.settings.overpass_url = endpoint
-        import pdb; pdb.set_trace()
-        try:
-            osm_data = ox.features_from_polygon(polygon_geom, tag_dict)
-            last_exc = None
-            break
-        except ox._errors.InsufficientResponseError as e:
-            if flags["f"]:
+        for attempt in range(max_retries):
+            try:
+                osm_data = ox.features_from_polygon(polygon_geom, tag_dict)
+                last_exc = None
+                break
+            except ox._errors.InsufficientResponseError as e:
+                if flags["f"]:
+                    grass.warning(
+                        _(f"No OSM features found for query {tag_dict}: {e}")
+                    )
+                    return
+                else:
+                    grass.fatal(
+                        _(
+                            f"No OSM features found for query {tag_dict}: {e}. "
+                            "If query correct, but not contained within AOI "
+                            "consider using the -f flag to allow failing query."
+                        )
+                    )
+            except Exception as e:
+                last_exc = e
+                if _is_permanent_http_error(e):
+                    grass.warning(
+                        _(
+                            f"osmnx endpoint {endpoint} rejected the "
+                            f"request ({e}), skipping to next endpoint."
+                        )
+                    )
+                    break
                 grass.warning(
-                    _(f"No OSM features found for query {tag_dict}: {e}")
-                )
-                return
-            else:
-                grass.fatal(
                     _(
-                        f"No OSM features found for query {tag_dict}: {e}. "
-                        "If query correct, but not contained within AOI "
-                        "consider using the -f flag to allow failing query."
+                        f"osmnx request to {endpoint} failed "
+                        f"(attempt {attempt + 1}/{max_retries}): {e}"
                     )
                 )
-        except Exception as e:
-            last_exc = e
-            grass.warning(
-                _(
-                    f"osmnx request to {endpoint} failed "
-                    f"(attempt {attempt + 1}/{max_retries}): {e}"
-                )
-            )
-            time.sleep(OVERPASS_RETRY_BACKOFF**attempt)
-        attempt += 1
+                time.sleep(OVERPASS_RETRY_BACKOFF**attempt)
         if last_exc is None:
             break
+        if not _is_permanent_http_error(last_exc):
+            grass.warning(
+                _(f"Giving up on {endpoint} after {max_retries} attempts.")
+            )
+
     if last_exc is not None:
         grass.fatal(_(f"OSMnx query failed with unexpected error: {last_exc}"))
 
@@ -544,7 +564,6 @@ def main():
         try:
             result_file = download_data_via_overpass(input_geojson, osm_tag)
         except Exception as e:
-            import pdb; pdb.set_trace()
             result_file = None
             grass.error(
                 _(
