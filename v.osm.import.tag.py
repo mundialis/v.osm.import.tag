@@ -515,8 +515,12 @@ def main():
                 "install it first:"
             )
             + "\n"
-            + "g.extension v.out.geojson url=path/to/addon"
+            + "g.extension v.out.geojson url=https://github.com/mundialis/v.out.geojson"
         )
+
+    if aoi_map:
+        if not grass.find_file(aoi_map, "vector")["file"]:
+            grass.fatal(_("Vector map <%s> not found") % aoi_map)
 
     # get aoi as geojson
     tmp_geojson = os.path.join(temp_dir, "tmp.geojson")
@@ -529,6 +533,8 @@ def main():
         with open(tmp_geojson, mode="r") as f:
             input_geojson = json.load(f)
     else:
+        if not os.access(area_of_interest, os.R_OK):
+            grass.fatal(_("File <%s> not found") % area_of_interest)
         with open(f"{area_of_interest}", mode="r") as f:
             input_geojson = json.load(f)
 
