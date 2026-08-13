@@ -160,6 +160,38 @@ OVERPASS_RETRY_BACKOFF = 2
 
 
 #### define functions
+# HTTP status codes that mean "this endpoint rejects us, don't bother
+# retrying the same host" (as opposed to transient issues like timeouts,
+# connection refused, 429 rate limiting, or 5xx server errors, which are
+# worth retrying/backing off on).
+# 401 Unauthorized: server requires authentication (we don't have credentials)
+# 403 Forbidden: server refuses to serve us (e.g. missing or generic User-Agent)
+# 404 Not Found: server doesn't have the requested resource (e.g. endpoint URL
+#                changed)
+# 406 Not Acceptable: server refuses to serve us (e.g. missing or generic
+#                     Accept header)
+_PERMANENT_HTTP_ERROR_CODES = (401, 403, 404, 406)
+
+
+def _is_permanent_http_error(exc):
+    """Check whether an exception represents a definitive rejection by
+    the server (e.g. 403/406) rather than a transient network problem.
+
+    Works both with requests.exceptions.HTTPError (which carries a
+    .response object) and with the string-based error messages that
+    osmnx/overpass sometimes raise instead (e.g. "'host' responded:
+    403 Forbidden").
+    """
+    response = getattr(exc, "response", None)
+    status_code = getattr(response, "status_code", None) if response else None
+    if status_code is None:
+        for code in _PERMANENT_HTTP_ERROR_CODES:
+            if str(code) in str(exc):
+                status_code = code
+                break
+    return status_code in _PERMANENT_HTTP_ERROR_CODES
+
+
 def check_geojson(input_json):
     """Check if there is a feature contained in geojson"""
     if len(input_json["features"]) == 0:
@@ -271,7 +303,9 @@ def _query_overpass_with_retries(query, timeout):
     last_exc = None
     with _polite_overpass_headers():
         for endpoint in OVERPASS_ENDPOINTS:
-            api = overpass.API(endpoint=endpoint, timeout=timeout)
+            api = overpass.API(
+                endpoint=endpoint, timeout=700, user_agent=OVERPASS_USER_AGENT
+            )
             for attempt in range(max_retries):
                 try:
                     return api.get(query, verbosity="geom")
@@ -567,8 +601,8 @@ def main():
             result_file = None
             grass.error(
                 _(
-                    "Overpass API request failed, "
-                    "trying to download data via osmnx library..."
+                    "Overpass API request failed! You can try "
+                    "to download data via osmnx library using tool=osmnx..."
                 )
             )
     elif tool == "osmnx":
