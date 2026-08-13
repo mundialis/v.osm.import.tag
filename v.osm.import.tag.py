@@ -164,6 +164,12 @@ OVERPASS_RETRY_BACKOFF = 2
 # retrying the same host" (as opposed to transient issues like timeouts,
 # connection refused, 429 rate limiting, or 5xx server errors, which are
 # worth retrying/backing off on).
+# 401 Unauthorized: server requires authentication (we don't have credentials)
+# 403 Forbidden: server refuses to serve us (e.g. missing or generic User-Agent)
+# 404 Not Found: server doesn't have the requested resource (e.g. endpoint URL
+#                changed)
+# 406 Not Acceptable: server refuses to serve us (e.g. missing or generic
+#                     Accept header)
 _PERMANENT_HTTP_ERROR_CODES = (401, 403, 404, 406)
 
 
