@@ -1,3 +1,4 @@
 overpass
+requests
 shapely
 osmnx
