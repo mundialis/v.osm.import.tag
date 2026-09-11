@@ -96,29 +96,27 @@
 # % exclusive: aoi_map, geojson
 # %end
 
+import atexit
 import contextlib
 import json
 import os
-import atexit
 import time
 
 import grass.script as grass
 
 try:
-    from shapely.geometry import Polygon
     import osmnx as ox
     import overpass
     import requests
+    from shapely.geometry import Polygon
 except ImportError as e:
     grass.fatal(
-        _(
-            f"Module requires shapely, osmnx, overpass and requests libraries: {e}"
-        )
+        _(f"Module requires shapely, osmnx, overpass and requests libraries: {e}")
     )
 
 options, flags = grass.parser()
 
-##### define variables
+# define variables
 temp_dir = grass.tempdir()
 rm_files = []
 
@@ -159,7 +157,7 @@ OVERPASS_USER_AGENT = (
 OVERPASS_RETRY_BACKOFF = 2
 
 
-#### define functions
+# define functions
 # HTTP status codes that mean "this endpoint rejects us, don't bother
 # retrying the same host" (as opposed to transient issues like timeouts,
 # connection refused, 429 rate limiting, or 5xx server errors, which are
@@ -195,9 +193,7 @@ def _is_permanent_http_error(exc):
 def check_geojson(input_json):
     """Check if there is a feature contained in geojson"""
     if len(input_json["features"]) == 0:
-        grass.message(
-            _("Stopped, because of no feature contained in geojson.")
-        )
+        grass.message(_("Stopped, because of no feature contained in geojson."))
         quit()
 
     elif len(input_json["features"]) > 1:
@@ -245,9 +241,7 @@ def convert_lines_to_polygons(result):
     """Convert line features in polygons"""
     for el in result["features"]:
         if el["geometry"]["type"] == "LineString":
-            el["geometry"]["coordinates"].append(
-                el["geometry"]["coordinates"][0]
-            )
+            el["geometry"]["coordinates"].append(el["geometry"]["coordinates"][0])
             el["geometry"]["coordinates"] = [el["geometry"]["coordinates"]]
             el["geometry"]["type"] = "Polygon"
         else:
@@ -333,10 +327,7 @@ def _query_overpass_with_retries(query, timeout):
             else:
                 # loop completed without a `break` -> all retries used up
                 grass.warning(
-                    _(
-                        f"Giving up on {endpoint} after "
-                        f"{max_retries} attempts."
-                    )
+                    _(f"Giving up on {endpoint} after {max_retries} attempts.")
                 )
     # every endpoint failed
     raise last_exc
@@ -389,23 +380,20 @@ def download_data_via_overpass(input_geojson, osm_tag):
         ]
 
         for attribute in attribute_names:
-            if (
-                attribute.lower() in attributes
-                and attribute != attribute.lower()
-            ):
+            if attribute.lower() in attributes and attribute != attribute.lower():
                 new_name = f"{attribute.lower()}"
                 if attribute.lower() in attribute_names_lower:
                     while new_name in attribute_names_lower:
                         new_name += "2"
-                result["features"][i]["properties"][new_name] = feature[
-                    "properties"
-                ][attribute]
+                result["features"][i]["properties"][new_name] = feature["properties"][
+                    attribute
+                ]
                 del result["features"][i]["properties"][attribute]
                 attribute_names_lower.append(new_name)
             elif attribute != attribute.lower():
-                result["features"][i]["properties"][attribute.lower()] = (
-                    feature["properties"][attribute]
-                )
+                result["features"][i]["properties"][attribute.lower()] = feature[
+                    "properties"
+                ][attribute]
                 del result["features"][i]["properties"][attribute]
 
         attributes.extend(attribute_names_lower)
@@ -485,9 +473,7 @@ def download_data_via_osmnx(input_geojson, osm_tag):
                 break
             except ox._errors.InsufficientResponseError as e:
                 if flags["f"]:
-                    grass.warning(
-                        _(f"No OSM features found for query {tag_dict}: {e}")
-                    )
+                    grass.warning(_(f"No OSM features found for query {tag_dict}: {e}"))
                     return
                 else:
                     grass.fatal(
@@ -517,9 +503,7 @@ def download_data_via_osmnx(input_geojson, osm_tag):
         if last_exc is None:
             break
         if not _is_permanent_http_error(last_exc):
-            grass.warning(
-                _(f"Giving up on {endpoint} after {max_retries} attempts.")
-            )
+            grass.warning(_(f"Giving up on {endpoint} after {max_retries} attempts."))
 
     if last_exc is not None:
         grass.fatal(_(f"OSMnx query failed with unexpected error: {last_exc}"))
@@ -530,9 +514,7 @@ def download_data_via_osmnx(input_geojson, osm_tag):
         # Join the list into a string
         if any(isinstance(val, list) for val in osm_data[col]):
             osm_data[col] = osm_data[col].apply(lambda x: str(x))
-    osm_data2 = osm_data.loc[
-        :, osm_data.columns.str.contains("|".join(column_names))
-    ]
+    osm_data2 = osm_data.loc[:, osm_data.columns.str.contains("|".join(column_names))]
 
     # # filter geometry
     # osm_data3 = osm_data2.loc[osm_data2.geometry.type == "Polygon"]
@@ -564,10 +546,7 @@ def main():
 
     if not grass.find_program("v.out.geojson", "--help"):
         grass.fatal(
-            _(
-                "The 'v.out.geojson' addon module was not found, "
-                "install it first:"
-            )
+            _("The 'v.out.geojson' addon module was not found, install it first:")
             + "\n"
             + "g.extension v.out.geojson url=https://github.com/mundialis/v.out.geojson"
         )
@@ -601,7 +580,7 @@ def main():
             result_file = None
             grass.error(
                 _(
-                    "Overpass API request failed! You can try "
+                    f"Overpass API request failed: {e} You can try "
                     "to download data via osmnx library using tool=osmnx..."
                 )
             )
