@@ -91,6 +91,44 @@ LineString!**
 v.osm.import.tag geojson=area_geojson osm_tag='nwr["amenity"="parking"],nwr["parking"="surface"]' output=parking_poly -p
 ```
 
+### Area of interest with several parts or holes
+
+The AOI may consist of several features and of polygons as well as
+multipolygons, e.g. a city consisting of several separate areas. OSM
+features of all parts are downloaded. If the AOI contains holes, features
+which are completely inside a hole are removed after the import.
+
+```sh
+v.osm.import.tag aoi_map=city_parts osm_tag='nwr["leisure"="park"]' output=parks
+```
+
+### Unreliable Overpass API endpoints
+
+The public Overpass API endpoints are often overloaded. The module tries
+all endpoints one after the other and repeats this for **retries**
+rounds. A request which does not get a response within **timeout**
+seconds is aborted and the next endpoint is tried. Own Overpass API
+instances (e.g. a self-hosted one loaded with a Geofabrik extract) can
+be used with **overpass_url**. They replace the global public endpoints,
+so the module fails if they do not respond. With the **-b** flag the
+global public endpoints are kept as fallback and are tried after them.
+
+```sh
+v.osm.import.tag geojson=area_geojson osm_tag='way["highway"]' output=highways overpass_url=http://localhost:12345/api/interpreter timeout=600 -b
+```
+
+If the AOI is completely inside Europe, the **-e** flag additionally uses
+public endpoints which only cover Europe. They are tried after
+**overpass_url** and before the global public endpoints, and their data
+is updated daily. **Do not use this flag for an AOI that is partly or
+completely outside Europe:** these endpoints return an empty result
+without an error for such areas, so OSM features there are missing and
+no other endpoint is tried.
+
+```sh
+v.osm.import.tag geojson=area_geojson osm_tag='way["highway"]' output=highways -e
+```
+
 ## REQUIREMENTS
 
 The following python libraries are used:
